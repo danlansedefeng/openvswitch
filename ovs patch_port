@@ -1,0 +1,85 @@
+# 创建patch port连接ovs两个桥
+# patch port用于连接openvswitch桥
+
+实验环境
+          patch-ovs-1       patch-ovs-2
+
++-----------------+         +----------------------+
+|                 |         |                      |
+| br1             +----------+              br2    |
+|                 |         |                      |
++-----------------+         +----------------------+
+       |                                 |
+       |                                 |
+ +-------------+                 +--------------+
+ |             |                 | ns2          |
+ | ns1         |                 |              |
+ |             |                 | 1.1.1.2/24   |
+ | 1.1.1.1/24  |                 | tap2         |
+ | tap1        |                 |              |
+ +-------------+                 +--------------+
+
+# 创建脚本
+ovs-vsctl add-br br1
+ovs-vsctl add-br br2
+
+ovs-vsctl add-port br1 tap1 -- set Interface tap1 type=internal
+ovs-vsctl add-port br2 tap2 -- set Interface tap2 type=internal
+
+ip netns add ns1
+ip netns add ns2
+
+ip link set tap1 netns ns1
+ip link set tap2 netns ns2
+
+ip netns exec ns1 ip addr add 1.1.1.1/24 dev tap1  
+ip netns exec ns1 ip link set tap1 up  
+ip netns exec ns1 ip link set lo up
+
+ip netns exec ns2 ip addr add 1.1.1.2/24 dev tap2  
+ip netns exec ns2 ip link set tap2 up  
+ip netns exec ns2 ip link set lo up  
+
+ovs-vsctl add-port br1 patch-ovs-1 -- set Interface patch-ovs-1 type=patch options:peer=patch-ovs-2
+
+ovs-vsctl add-port br2 patch-ovs-2 -- set Interface patch-ovs-2 type=patch options:peer=patch-ovs-1
+
+# 测试
+ip netns exec ns1 ping 1.1.1.2
+# 实验配置查看
+root@compute:~# ovs-vsctl show
+0f92aaa0-5385-48f5-a54a-644e05652f59
+    Manager "ptcp:6640:127.0.0.1"
+        is_connected: true
+    Bridge "br2"
+        Port "tap2"
+            Interface "tap2"
+                type: internal
+        Port "patch-ovs-2"
+            Interface "patch-ovs-2"
+                type: patch
+                options: {peer="patch-ovs-1"}
+        Port "br2"
+            Interface "br2"
+                type: internal
+    Bridge "br1"
+        Port "br1"
+            Interface "br1"
+                type: internal
+        Port "tap1"
+            Interface "tap1"
+                type: internal
+        Port "patch-ovs-1"
+            Interface "patch-ovs-1"
+                type: patch
+                options: {peer="patch-ovs-2"}
+# 实验结果
+# ns1 可以ping 通 ns2 ip
+
+# 重点解析
+# 两个ovs bridge间连接分别在两个桥上执行下面命令使用patch port互联
+
+ovs-vsctl add-port br1 patch-ovs-1 -- set Interface patch-ovs-1 type=patch options:peer=patch-ovs-2
+
+ovs-vsctl add-port br2 patch-ovs-2 -- set Interface patch-ovs-2 type=patch options:peer=patch-ovs-1
+
