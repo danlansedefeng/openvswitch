@@ -1,0 +1,3 @@
+OVN Gateway用于连接overlay network和physical network。它支持L2/L3两种方式：
+
+https://www.cnblogs.com/liuhongru/p/11142747.html
