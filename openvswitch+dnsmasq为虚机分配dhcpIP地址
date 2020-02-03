@@ -1,0 +1,12 @@
+#!/bin/bash
+ovs-vsctl add-br br-wan
+ovs-vsctl add-port br-wan tap-qdhcp -- set Interface tap-qdhcp type=internal
+ifconfig tap-qdhcp 10.0.0.1 netmask 255.255.255.0 up
+yum -y install dnsmasq
+mkdir /var/run/dnsmasq
+/usr/sbin/dnsmasq --strict-order --bind-interfaces --except-interface lo --interface tap-qdhcp --dhcp-range 10.0.0.10,10.0.0.100 --dhcp-leasefile=/var/run/dnsmasq/tap-qdhcp.pid --dhcp-lease-max=253 --dhcp-no-override --log-queries --log-facility=/tmp/dnsmasq.log  
+sh /opt/scripts/instance/create_instance test
+
+
+
+ip neigh //查看主机保存的ARP缓存
